@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="eu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formakuntza Bilatzailea</title>
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js" type="application/javascript"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            background-color: #f5f5f5;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            display: none;
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+        .loading {
+            display: none;
+            margin-top: 10px;
+        }
+        .nft-image {
+            max-width: 100%;
+            height: auto;
+            margin-top: 15px;
+            border-radius: 8px;
+        }
+        .status-connected {
+            color: green;
+            font-weight: bold;
+        }
+        .status-disconnected {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Formakuntza Bilatzailea</h1>
+        
+        <div id="network-section">
+            <div class="form-group">
+                <label for="rpcEndpoint">RPC Endpoint-a:</label>
+                <select id="rpcEndpoint">
+                    <option value="http://217.127.110.210:8545">1 nodoa</option>
+                    <option value="http://212.81.197.60:8545">2 nodoa</option>
+                    <option value="http://195.53.127.242:8545">3 nodoa</option>
+                    <option value="http://212.81.153.88:8545">4 nodoa</option>
+                    <option value="http://150.241.33.98:8545">5 nodoa</option>
+                    <option value="http://2.139.183.156:8545">6 nodoa</option>
+                    <option value="http://212.8.116.208:8545">7 nodoa</option>
+                    <!-- Add your Besu node IPs here -->
+                    <!-- <option value="http://example.com:8545">Example Node</option> -->
+                </select>
+            </div>
+            <button id="connectNode">Konektatu Nodo-ra</button>
+            <p>Konexio egoera: <span id="connectionStatus" class="status-disconnected">Ez konektatuta</span></p>
+        </div>
+
+        <div id="search-section" style="display: none;">
+            <div class="form-group">
+                <label for="tokenId">Sartu Formakuntzaren Token ID-a:</label>
+                <input type="number" id="tokenId" min="0" placeholder="Adibidez: 0">
+            </div>
+            <button id="searchToken">Bilatu</button>
+            <div id="loading" class="loading">Kargatzen...</div>
+            <p id="errorMessage" class="error"></p>
+        </div>
+
+        <div id="result">
+            <h2>Formakuntzaren Datuak</h2>
+            <div id="tokenData">
+                <p><strong>Token ID:</strong> <span id="displayTokenId"></span></p>
+                <p><strong>Jabea:</strong> <span id="owner"></span></p>
+                <p><strong>Token URI:</strong> <span id="tokenURI"></span></p>
+                <p><strong>Testu Informazioa:</strong> <span id="textInfo"></span></p>
+                <div id="imageContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Contract ABI - Only the functions we need
+        const contractABI = [
+            {
+                "inputs": [{"internalType": "uint256", "name": "tokenId", "type": "uint256"}],
+                "name": "tokenURI",
+                "outputs": [{"internalType": "string", "name": "", "type": "string"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{"internalType": "uint256", "name": "tokenId", "type": "uint256"}],
+                "name": "tokenTextInfo",
+                "outputs": [{"internalType": "string", "name": "", "type": "string"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{"internalType": "uint256", "name": "tokenId", "type": "uint256"}],
+                "name": "ownerOf",
+                "outputs": [{"internalType": "address", "name": "", "type": "address"}],
+                "stateMutability": "view",
+                "type": "function"
+            }
+        ];
+
+        // Contract address - Replace with your actual deployed contract address
+        const contractAddress = "0xe8BcF98571A253ba5FFe3fd6e04F4a72d13f3038"; // You'll need to update this with your actual contract address
+
+        let provider;
+        let contract;
+
+        // Connect to node button
+        document.getElementById('connectNode').addEventListener('click', connectToNode);
+
+        // Search token button
+        document.getElementById('searchToken').addEventListener('click', searchToken);
+
+        // Add custom RPC endpoint
+        function addCustomRPC() {
+            const customRpc = prompt("Sartu RPC URL berria:", "http://");
+            if (customRpc && customRpc.trim() !== "") {
+                const select = document.getElementById('rpcEndpoint');
+                const option = document.createElement('option');
+                option.value = customRpc;
+                option.textContent = `Custom: ${customRpc}`;
+                select.appendChild(option);
+                select.value = customRpc;
+            }
+        }
+
+        // Connect to Besu node
+        async function connectToNode() {
+            try {
+                const rpcUrl = document.getElementById('rpcEndpoint').value;
+                
+                // Create provider
+                provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+                
+                // Test connection by getting network
+                const network = await provider.getNetwork();
+                
+                // Create contract instance
+                contract = new ethers.Contract(contractAddress, contractABI, provider);
+                
+                // Update UI to show connected state
+                document.getElementById('connectionStatus').textContent = `Konektatuta (${network.name}, Chain ID: ${network.chainId})`;
+                document.getElementById('connectionStatus').className = 'status-connected';
+                
+                // Show search section once connected
+                document.getElementById('search-section').style.display = 'block';
+                
+            } catch (error) {
+                console.error("Error connecting to node:", error);
+                document.getElementById('connectionStatus').textContent = 'Errorea konektatzean';
+                document.getElementById('connectionStatus').className = 'status-disconnected';
+                document.getElementById('errorMessage').innerText = 'Ezin izan da nodora konektatu. Egiaztatu RPC helbidea zuzena dela.';
+            }
+        }
+
+        // Search for token data
+        async function searchToken() {
+            // Hide previous results and errors
+            document.getElementById('result').style.display = 'none';
+            document.getElementById('errorMessage').innerText = '';
+            
+            const tokenId = document.getElementById('tokenId').value;
+            
+            if (!tokenId) {
+                document.getElementById('errorMessage').innerText = 'Mesedez, sartu token ID bat.';
+                return;
+            }
+            
+            if (!contract) {
+                document.getElementById('errorMessage').innerText = 'Nodo-ra konektatu behar duzu lehenengo.';
+                return;
+            }
+            
+            // Show loading indicator
+            document.getElementById('loading').style.display = 'block';
+            
+            try {
+                // Get token data
+                const [owner, uri, textInfo] = await Promise.all([
+                    contract.ownerOf(tokenId),
+                    contract.tokenURI(tokenId),
+                    contract.tokenTextInfo(tokenId)
+                ]);
+                
+                // Display the data
+                document.getElementById('displayTokenId').innerText = tokenId;
+                document.getElementById('owner').innerText = owner;
+                document.getElementById('tokenURI').innerText = uri;
+                document.getElementById('textInfo').innerText = textInfo;
+                
+                // Try to fetch and display image if URI is accessible
+                const imageContainer = document.getElementById('imageContainer');
+                imageContainer.innerHTML = '';
+                
+                try {
+                    // If it's an IPFS URI, convert it to a gateway URL
+                    let fetchUrl = uri;
+                    if (uri.startsWith('ipfs://')) {
+                        fetchUrl = uri.replace('ipfs://', 'https://ipfs.io/ipfs/');
+                    }
+                    
+                    // Try to fetch the metadata
+                    const response = await fetch(fetchUrl);
+                    if (response.ok) {
+                        const metadata = await response.json();
+                        if (metadata.image) {
+                            let imageUrl = metadata.image;
+                            if (imageUrl.startsWith('ipfs://')) {
+                                imageUrl = imageUrl.replace('ipfs://', 'https://ipfs.io/ipfs/');
+                            }
+                            
+                            const imgElement = document.createElement('img');
+                            imgElement.src = imageUrl;
+                            imgElement.className = 'nft-image';
+                            imgElement.alt = 'NFT Irudia';
+                            imageContainer.appendChild(imgElement);
+                        }
+                    }
+                } catch (imageError) {
+                    console.log('Failed to load image:', imageError);
+                }
+                
+                // Show results
+                document.getElementById('result').style.display = 'block';
+            } catch (error) {
+                console.error("Error fetching token data:", error);
+                
+                // Check for specific errors
+                if (error.message.includes("nonexistent token")) {
+                    document.getElementById('errorMessage').innerText = `ID-a duen tokena ez da existitzen: ${tokenId}`;
+                } else {
+                    document.getElementById('errorMessage').innerText = 'Errorea token datuak eskuratzean. Ziurtatu ID zuzena duen tokena existitzen dela.';
+                }
+            } finally {
+                // Hide loading indicator
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        // Add option to add custom RPC endpoint
+        document.addEventListener('DOMContentLoaded', function() {
+            const select = document.getElementById('rpcEndpoint');
+            const option = document.createElement('option');
+            option.value = "custom";
+            option.textContent = "Gehitu RPC nodo berria...";
+            select.appendChild(option);
+
+            select.addEventListener('change', function() {
+                if (this.value === 'custom') {
+                    addCustomRPC();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
