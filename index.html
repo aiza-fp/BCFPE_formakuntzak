@@ -4,7 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Formakuntza Bilatzailea</title>
-    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js" type="application/javascript"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js" 
+            integrity="sha256-sZJed4y2zFqFsUcHPj3nqJwlgWBBu7/JNRBGkRbzzc=" 
+            crossorigin="anonymous"></script>
+    <script>
+        window.addEventListener('DOMContentLoaded', function() {
+            if (typeof ethers === 'undefined') {
+                const errorMsg = document.createElement('div');
+                errorMsg.className = 'error';
+                errorMsg.style.padding = '10px';
+                errorMsg.style.margin = '10px 0';
+                errorMsg.textContent = 'Ezin izan da ethers.js liburutegia kargatu. Saiatu geroago berriro.';
+                document.querySelector('.container').prepend(errorMsg);
+            }
+        });
+    </script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -173,6 +187,11 @@
         // Connect to Besu node
         async function connectToNode() {
             try {
+                // Check if ethers library is loaded
+                if (typeof ethers === 'undefined') {
+                    throw new Error('ethers.js liburutegia ez da kargatu. Mesedez, berritu orria eta saiatu berriro.');
+                }
+                
                 const rpcUrl = document.getElementById('rpcEndpoint').value;
                 
                 // Create provider
@@ -195,7 +214,7 @@
                 console.error("Error connecting to node:", error);
                 document.getElementById('connectionStatus').textContent = 'Errorea konektatzean';
                 document.getElementById('connectionStatus').className = 'status-disconnected';
-                document.getElementById('errorMessage').innerText = 'Ezin izan da nodora konektatu. Egiaztatu RPC helbidea zuzena dela.';
+                document.getElementById('errorMessage').innerText = error.message || 'Ezin izan da nodora konektatu. Egiaztatu RPC helbidea zuzena dela.';
             }
         }
 
