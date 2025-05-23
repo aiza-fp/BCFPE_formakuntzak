@@ -4,41 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Formakuntza Bilatzailea</title>
-    <script>
-        function loadScript(src, callback) {
-            const script = document.createElement('script');
-            script.src = src;
-            script.onload = callback;
-            script.onerror = function() {
-                console.error("Failed to load:", src);
-                if (sources.length > 0) {
-                    loadScript(sources.shift(), callback);
-                } else {
-                    const errorMsg = document.createElement('div');
-                    errorMsg.className = 'error';
-                    errorMsg.style.padding = '10px';
-                    errorMsg.style.margin = '10px 0';
-                    errorMsg.textContent = 'Ezin izan da ethers.js liburutegia kargatu. Saiatu geroago berriro.';
-                    document.querySelector('.container').prepend(errorMsg);
-                }
-            };
-            document.head.appendChild(script);
-        }
-
-        // List of potential ethers.js CDN sources
-        const sources = [
-            "https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js",
-            "https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js",
-            "https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"
-        ];
-
-        // Start loading from the first source
-        window.addEventListener('DOMContentLoaded', function() {
-            loadScript(sources.shift(), function() {
-                console.log("ethers.js loaded successfully");
-            });
-        });
-    </script>
+    <script src="ethers_5.7.2.umd.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -123,8 +89,6 @@
                     <option value="http://150.241.33.98:8545">5 nodoa</option>
                     <option value="http://2.139.183.156:8545">6 nodoa</option>
                     <option value="http://212.8.116.208:8545">7 nodoa</option>
-                    <!-- Add your Besu node IPs here -->
-                    <!-- <option value="http://example.com:8545">Example Node</option> -->
                 </select>
             </div>
             <button id="connectNode">Konektatu Nodo-ra</button>
@@ -180,7 +144,7 @@
         ];
 
         // Contract address - Replace with your actual deployed contract address
-        const contractAddress = "0xe8BcF98571A253ba5FFe3fd6e04F4a72d13f3038"; // You'll need to update this with your actual contract address
+        const contractAddress = "0xe8BcF98571A253ba5FFe3fd6e04F4a72d13f3038";
 
         let provider;
         let contract;
