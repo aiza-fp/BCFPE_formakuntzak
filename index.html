@@ -79,20 +79,9 @@
         <h1>Formakuntza Bilatzailea</h1>
         
         <div id="network-section">
-            <div class="form-group">
-                <label for="rpcEndpoint">RPC Endpoint-a:</label>
-                <select id="rpcEndpoint">
-                    <option value="http://217.127.110.210:8545">1 nodoa</option>
-                    <option value="http://212.81.197.60:8545">2 nodoa</option>
-                    <option value="http://195.53.127.242:8545">3 nodoa</option>
-                    <option value="http://212.81.153.88:8545">4 nodoa</option>
-                    <option value="http://150.241.33.98:8545">5 nodoa</option>
-                    <option value="http://2.139.183.156:8545">6 nodoa</option>
-                    <option value="http://212.8.116.208:8545">7 nodoa</option>
-                </select>
-            </div>
-            <button id="connectNode">Konektatu Nodo-ra</button>
-            <p>Konexio egoera: <span id="connectionStatus" class="status-disconnected">Ez konektatuta</span></p>
+            <h2>Blockchain-era konektatzen...</h2>
+            <p>Konexio egoera: <span id="connectionStatus" class="status-disconnected">Nodoak probatzen...</span></p>
+            <div id="connectionProgress" style="margin-top: 10px;"></div>
         </div>
 
         <div id="search-section" style="display: none;">
@@ -149,57 +138,76 @@
         let provider;
         let contract;
 
-        // Connect to node button
-        document.getElementById('connectNode').addEventListener('click', connectToNode);
-
         // Search token button
         document.getElementById('searchToken').addEventListener('click', searchToken);
 
-        // Add custom RPC endpoint
-        function addCustomRPC() {
-            const customRpc = prompt("Sartu RPC URL berria:", "http://");
-            if (customRpc && customRpc.trim() !== "") {
-                const select = document.getElementById('rpcEndpoint');
-                const option = document.createElement('option');
-                option.value = customRpc;
-                option.textContent = `Custom: ${customRpc}`;
-                select.appendChild(option);
-                select.value = customRpc;
-            }
-        }
+        // Start connection automatically when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            connectToNode();
+        });
 
-        // Connect to Besu node
+        // Connect to Besu node - try each one until successful
         async function connectToNode() {
-            try {
-                // Check if ethers library is loaded
-                if (typeof ethers === 'undefined') {
-                    throw new Error('ethers.js liburutegia ez da kargatu. Mesedez, berritu orria eta saiatu berriro.');
-                }
-                
-                const rpcUrl = document.getElementById('rpcEndpoint').value;
-                
-                // Create provider
-                provider = new ethers.providers.JsonRpcProvider(rpcUrl);
-                
-                // Test connection by getting network
-                const network = await provider.getNetwork();
-                
-                // Create contract instance
-                contract = new ethers.Contract(contractAddress, contractABI, provider);
-                
-                // Update UI to show connected state
-                document.getElementById('connectionStatus').textContent = `Konektatuta (${network.name}, Chain ID: ${network.chainId})`;
-                document.getElementById('connectionStatus').className = 'status-connected';
-                
-                // Show search section once connected
-                document.getElementById('search-section').style.display = 'block';
-                
-            } catch (error) {
-                console.error("Error connecting to node:", error);
-                document.getElementById('connectionStatus').textContent = 'Errorea konektatzean';
+            // Check if ethers library is loaded
+            if (typeof ethers === 'undefined') {
+                document.getElementById('connectionStatus').textContent = 'ethers.js liburutegia ez da kargatu';
                 document.getElementById('connectionStatus').className = 'status-disconnected';
-                document.getElementById('errorMessage').innerText = error.message || 'Ezin izan da nodora konektatu. Egiaztatu RPC helbidea zuzena dela.';
+                return;
             }
+            
+            const rpcUrls = [
+                "http://217.127.110.210:8545",
+                "http://212.81.197.60:8545", 
+                "http://195.53.127.242:8545",
+                "http://212.81.153.88:8545",
+                "http://150.241.33.98:8545",
+                "http://2.139.183.156:8545",
+                "http://212.8.116.208:8545"
+            ];
+            
+            const progressDiv = document.getElementById('connectionProgress');
+            
+            for (let i = 0; i < rpcUrls.length; i++) {
+                const rpcUrl = rpcUrls[i];
+                
+                try {
+                    // Update progress
+                    progressDiv.innerHTML = `Probatzen ${i + 1}/${rpcUrls.length}: ${rpcUrl}`;
+                    document.getElementById('connectionStatus').textContent = `Probatzen nodoa ${i + 1}...`;
+                    
+                    // Create provider
+                    provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+                    
+                    // Test connection by getting network (with timeout)
+                    const network = await Promise.race([
+                        provider.getNetwork(),
+                        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+                    ]);
+                    
+                    // Create contract instance
+                    contract = new ethers.Contract(contractAddress, contractABI, provider);
+                    
+                    // Update UI to show connected state
+                    document.getElementById('connectionStatus').textContent = `Konektatuta arrakastaz!`;
+                    document.getElementById('connectionStatus').className = 'status-connected';
+                    progressDiv.innerHTML = `Konektatuta: ${rpcUrl} (${network.name}, Chain ID: ${network.chainId})`;
+                    
+                    // Hide network section and show search section
+                    document.getElementById('network-section').style.display = 'none';
+                    document.getElementById('search-section').style.display = 'block';
+                    
+                    return; // Success - exit function
+                    
+                } catch (error) {
+                    console.log(`Failed to connect to ${rpcUrl}:`, error.message);
+                    // Continue to next node
+                }
+            }
+            
+            // If we get here, all nodes failed
+            document.getElementById('connectionStatus').textContent = 'Ezin izan da inolako nodora konektatu';
+            document.getElementById('connectionStatus').className = 'status-disconnected';
+            progressDiv.innerHTML = `<span style="color: red;">Errorea: Nodo guztiak huts egin dute. Saiatu geroago berriro.</span>`;
         }
 
         // Search for token data
@@ -285,21 +293,6 @@
                 document.getElementById('loading').style.display = 'none';
             }
         }
-
-        // Add option to add custom RPC endpoint
-        document.addEventListener('DOMContentLoaded', function() {
-            const select = document.getElementById('rpcEndpoint');
-            const option = document.createElement('option');
-            option.value = "custom";
-            option.textContent = "Gehitu RPC nodo berria...";
-            select.appendChild(option);
-
-            select.addEventListener('change', function() {
-                if (this.value === 'custom') {
-                    addCustomRPC();
-                }
-            });
-        });
     </script>
 </body>
 </html>
