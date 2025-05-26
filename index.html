@@ -100,7 +100,8 @@
                 <p><strong>Token ID:</strong> <span id="displayTokenId"></span></p>
                 <p><strong>Jabea:</strong> <span id="owner"></span></p>
                 <p><strong>Token URI:</strong> <span id="tokenURI"></span></p>
-                <p><strong>Testu Informazioa:</strong> <span id="textInfo"></span></p>
+                <div><strong>Testu Informazioa:</strong></div>
+                <div id="textInfo" style="margin-left: 20px; white-space: pre-line;"></div>
                 <div id="imageContainer"></div>
             </div>
         </div>
@@ -243,7 +244,22 @@
                 document.getElementById('displayTokenId').innerText = tokenId;
                 document.getElementById('owner').innerText = owner;
                 document.getElementById('tokenURI').innerText = uri;
-                document.getElementById('textInfo').innerText = textInfo;
+                
+                // Parse and format textInfo JSON
+                try {
+                    const textInfoData = JSON.parse(textInfo);
+                    let formattedText = '';
+                    
+                    for (const [key, value] of Object.entries(textInfoData)) {
+                        formattedText += `<strong>${key}:</strong> ${value}<br>`;
+                    }
+                    
+                    document.getElementById('textInfo').innerHTML = formattedText;
+                } catch (error) {
+                    // If it's not valid JSON, display as is
+                    console.log('textInfo is not valid JSON, displaying as text:', error);
+                    document.getElementById('textInfo').innerText = textInfo;
+                }
                 
                 // Try to fetch and display image if URI is accessible
                 const imageContainer = document.getElementById('imageContainer');
